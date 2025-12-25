@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { motion, useMotionValue, useTransform } from 'framer-motion';
+import { useState, useCallback } from 'react';
+import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
 import type { PanInfo } from 'framer-motion';
 import type { Product } from '../types';
 import { ProductCard } from './ProductCard';
@@ -12,73 +12,140 @@ interface SwipeContainerProps {
 
 export const SwipeContainer = ({ products, onAllSwiped }: SwipeContainerProps) => {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [exitX, setExitX] = useState(0);
-  const [exitY, setExitY] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
   const addItem = useCartStore((state) => state.addItem);
 
   const x = useMotionValue(0);
   const y = useMotionValue(0);
-  const rotate = useTransform(x, [-200, 200], [-25, 25]);
-  const opacity = useTransform(x, [-200, -100, 0, 100, 200], [0.5, 1, 1, 1, 0.5]);
+
+  // Плавное вращение при горизонтальном свайпе
+  const rotate = useTransform(x, [-300, 0, 300], [-15, 0, 15]);
+
+  // Масштаб следующей карточки зависит от движения текущей
+  const nextCardScale = useTransform(
+    x,
+    [-300, 0, 300],
+    [1, 0.92, 1]
+  );
+  const nextCardOpacity = useTransform(
+    x,
+    [-300, 0, 300],
+    [1, 0.5, 1]
+  );
+
+  // Индикаторы свайпа
+  const skipIndicatorOpacity = useTransform(x, [0, 100], [0, 1]);
+  const backIndicatorOpacity = useTransform(x, [-100, 0], [1, 0]);
+  const cartIndicatorOpacity = useTransform(y, [0, 100], [0, 1]);
 
   const currentProduct = products[currentIndex];
   const nextProduct = products[currentIndex + 1];
 
-  const handleDragEnd = (_: any, info: PanInfo) => {
-    const swipeThreshold = 100;
-    const velocityThreshold = 500;
+  const goToNext = useCallback(() => {
+    if (currentIndex < products.length - 1) {
+      setCurrentIndex((prev) => prev + 1);
+    } else {
+      setCurrentIndex(products.length);
+      if (onAllSwiped) onAllSwiped();
+    }
+  }, [currentIndex, products.length, onAllSwiped]);
+
+  const handleDragStart = () => {
+    setIsDragging(true);
+  };
+
+  const handleDragEnd = (_: unknown, info: PanInfo) => {
+    setIsDragging(false);
+
+    const swipeThreshold = 80;
+    const velocityThreshold = 400;
 
     const swipedRight = info.offset.x > swipeThreshold || info.velocity.x > velocityThreshold;
     const swipedLeft = info.offset.x < -swipeThreshold || info.velocity.x < -velocityThreshold;
     const swipedDown = info.offset.y > swipeThreshold || info.velocity.y > velocityThreshold;
 
     if (swipedDown) {
-      // Add to cart
-      setExitX(0);
-      setExitY(1000);
+      // В корзину — вылет вниз
       addItem(currentProduct);
-      goToNext();
+      animate(y, 800, {
+        type: 'spring',
+        stiffness: 400,
+        damping: 30,
+        onComplete: () => {
+          goToNext();
+          x.set(0);
+          y.set(0);
+        }
+      });
     } else if (swipedRight) {
-      // Skip (next)
-      setExitX(1000);
-      setExitY(0);
-      goToNext();
+      // Пропустить — вылет вправо
+      animate(x, 500, {
+        type: 'spring',
+        stiffness: 400,
+        damping: 30,
+        onComplete: () => {
+          goToNext();
+          x.set(0);
+          y.set(0);
+        }
+      });
     } else if (swipedLeft) {
-      // Go back (previous) or skip
-      setExitX(-1000);
-      setExitY(0);
-      goToNext();
+      // Назад — вылет влево
+      animate(x, -500, {
+        type: 'spring',
+        stiffness: 400,
+        damping: 30,
+        onComplete: () => {
+          goToNext();
+          x.set(0);
+          y.set(0);
+        }
+      });
+    } else {
+      // Вернуть на место
+      animate(x, 0, { type: 'spring', stiffness: 500, damping: 30 });
+      animate(y, 0, { type: 'spring', stiffness: 500, damping: 30 });
     }
-  };
-
-  const goToNext = () => {
-    setTimeout(() => {
-      if (currentIndex < products.length - 1) {
-        setCurrentIndex((prev) => prev + 1);
-        setExitX(0);
-        setExitY(0);
-      } else {
-        setCurrentIndex(products.length);
-        if (onAllSwiped) onAllSwiped();
-      }
-    }, 200);
   };
 
   const swipe = (direction: 'left' | 'right' | 'down') => {
     if (currentIndex >= products.length) return;
 
     if (direction === 'down') {
-      setExitX(0);
-      setExitY(1000);
       addItem(currentProduct);
+      animate(y, 800, {
+        type: 'spring',
+        stiffness: 400,
+        damping: 30,
+        onComplete: () => {
+          goToNext();
+          x.set(0);
+          y.set(0);
+        }
+      });
     } else if (direction === 'right') {
-      setExitX(1000);
-      setExitY(0);
+      animate(x, 500, {
+        type: 'spring',
+        stiffness: 400,
+        damping: 30,
+        onComplete: () => {
+          goToNext();
+          x.set(0);
+          y.set(0);
+        }
+      });
     } else {
-      setExitX(-1000);
-      setExitY(0);
+      animate(x, -500, {
+        type: 'spring',
+        stiffness: 400,
+        damping: 30,
+        onComplete: () => {
+          goToNext();
+          x.set(0);
+          y.set(0);
+        }
+      });
     }
-    goToNext();
   };
 
   const canSwipe = currentIndex < products.length;
@@ -88,35 +155,76 @@ export const SwipeContainer = ({ products, onAllSwiped }: SwipeContainerProps) =
       {/* Card Stack */}
       <div className="relative flex-1 flex items-center justify-center px-4">
         <div className="relative w-full max-w-sm aspect-[3/4]">
-          {/* Next card (background) */}
+          {/* Next card (background) - реагирует на движение текущей */}
           {nextProduct && (
-            <div className="absolute inset-0 scale-95 opacity-50">
+            <motion.div
+              className="absolute inset-0"
+              style={{ scale: nextCardScale, opacity: nextCardOpacity }}
+            >
               <ProductCard product={nextProduct} />
-            </div>
+            </motion.div>
           )}
 
           {/* Current card */}
           {currentProduct && (
             <motion.div
               key={currentProduct.id}
-              className="absolute inset-0 cursor-grab active:cursor-grabbing"
-              style={{ x, y, rotate, opacity }}
+              className="absolute inset-0 cursor-grab active:cursor-grabbing touch-none"
+              style={{ x, y, rotate }}
               drag
               dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
-              dragElastic={1}
+              dragElastic={0.9}
+              dragTransition={{ bounceStiffness: 300, bounceDamping: 20 }}
+              onDragStart={handleDragStart}
               onDragEnd={handleDragEnd}
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1, x: 0, y: 0 }}
-              exit={{ x: exitX, y: exitY, opacity: 0 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 25 }}
             >
+              {/* Swipe Indicators - появляются при свайпе */}
+              {isDragging && (
+                <>
+                  {/* Skip indicator (right) */}
+                  <motion.div
+                    className="absolute top-6 right-6 z-10 bg-blue-500/90 text-white px-4 py-2 rounded-full font-bold text-sm shadow-lg"
+                    style={{ opacity: skipIndicatorOpacity }}
+                  >
+                    ПРОПУСТИТЬ →
+                  </motion.div>
+
+                  {/* Back indicator (left) */}
+                  <motion.div
+                    className="absolute top-6 left-6 z-10 bg-gray-500/90 text-white px-4 py-2 rounded-full font-bold text-sm shadow-lg"
+                    style={{ opacity: backIndicatorOpacity }}
+                  >
+                    ← НАЗАД
+                  </motion.div>
+
+                  {/* Cart indicator (down) */}
+                  <motion.div
+                    className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 bg-[#e94560]/90 text-white px-4 py-2 rounded-full font-bold text-sm shadow-lg flex items-center gap-2"
+                    style={{ opacity: cartIndicatorOpacity }}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    В КОРЗИНУ
+                  </motion.div>
+                </>
+              )}
+
               <ProductCard product={currentProduct} />
             </motion.div>
           )}
 
           {/* Empty State */}
           {currentIndex >= products.length && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-8">
+            <motion.div
+              className="absolute inset-0 flex flex-col items-center justify-center text-center p-8"
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+            >
               <span className="text-6xl mb-4">🎉</span>
               <h3 className="text-xl font-bold text-white mb-2">
                 Все товары просмотрены!
@@ -124,7 +232,7 @@ export const SwipeContainer = ({ products, onAllSwiped }: SwipeContainerProps) =
               <p className="text-white/60 text-sm">
                 Выберите другую категорию или перейдите в корзину
               </p>
-            </div>
+            </motion.div>
           )}
         </div>
       </div>
