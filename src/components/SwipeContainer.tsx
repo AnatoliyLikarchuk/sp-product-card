@@ -1,9 +1,37 @@
 import { useState, useCallback } from 'react';
 import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
 import type { PanInfo } from 'framer-motion';
+import confetti from 'canvas-confetti';
 import type { Product } from '../types';
 import { ProductCard } from './ProductCard';
 import { useCartStore } from '../store/cartStore';
+
+// Функция для запуска конфетти при добавлении в корзину
+const triggerConfetti = () => {
+  // Запускаем два взрыва для более яркого эффекта
+  const defaults = {
+    spread: 60,
+    ticks: 100,
+    gravity: 0.8,
+    decay: 0.94,
+    startVelocity: 30,
+    colors: ['#e94560', '#ff6b8a', '#ffd93d', '#6bcb77', '#4d96ff'],
+  };
+
+  confetti({
+    ...defaults,
+    particleCount: 40,
+    origin: { x: 0.3, y: 0.6 },
+    angle: 60,
+  });
+
+  confetti({
+    ...defaults,
+    particleCount: 40,
+    origin: { x: 0.7, y: 0.6 },
+    angle: 120,
+  });
+};
 
 interface SwipeContainerProps {
   products: Product[];
@@ -54,6 +82,7 @@ export const SwipeContainer = ({ products, onAllSwiped }: SwipeContainerProps) =
     if (swipedDown) {
       // В корзину — вылет вниз
       addItem(currentProduct);
+      triggerConfetti();
       animate(y, 800, {
         type: 'spring',
         stiffness: 400,
@@ -100,6 +129,7 @@ export const SwipeContainer = ({ products, onAllSwiped }: SwipeContainerProps) =
 
     if (direction === 'down') {
       addItem(currentProduct);
+      triggerConfetti();
       animate(y, 800, {
         type: 'spring',
         stiffness: 400,
