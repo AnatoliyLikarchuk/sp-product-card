@@ -21,25 +21,12 @@ export const SwipeContainer = ({ products, onAllSwiped }: SwipeContainerProps) =
   // Плавное вращение при горизонтальном свайпе
   const rotate = useTransform(x, [-300, 0, 300], [-15, 0, 15]);
 
-  // Масштаб следующей карточки зависит от движения текущей
-  const nextCardScale = useTransform(
-    x,
-    [-300, 0, 300],
-    [1, 0.92, 1]
-  );
-  const nextCardOpacity = useTransform(
-    x,
-    [-300, 0, 300],
-    [1, 0.5, 1]
-  );
-
   // Индикаторы свайпа
   const skipIndicatorOpacity = useTransform(x, [0, 100], [0, 1]);
   const backIndicatorOpacity = useTransform(x, [-100, 0], [1, 0]);
   const cartIndicatorOpacity = useTransform(y, [0, 100], [0, 1]);
 
   const currentProduct = products[currentIndex];
-  const nextProduct = products[currentIndex + 1];
 
   const goToNext = useCallback(() => {
     if (currentIndex < products.length - 1) {
@@ -155,16 +142,6 @@ export const SwipeContainer = ({ products, onAllSwiped }: SwipeContainerProps) =
       {/* Card Stack */}
       <div className="relative flex-1 flex items-center justify-center px-4">
         <div className="relative w-full max-w-sm aspect-[3/4]">
-          {/* Next card (background) - реагирует на движение текущей */}
-          {nextProduct && (
-            <motion.div
-              className="absolute inset-0"
-              style={{ scale: nextCardScale, opacity: nextCardOpacity }}
-            >
-              <ProductCard product={nextProduct} />
-            </motion.div>
-          )}
-
           {/* Current card */}
           {currentProduct && (
             <motion.div
@@ -177,9 +154,9 @@ export const SwipeContainer = ({ products, onAllSwiped }: SwipeContainerProps) =
               dragTransition={{ bounceStiffness: 300, bounceDamping: 20 }}
               onDragStart={handleDragStart}
               onDragEnd={handleDragEnd}
-              initial={{ scale: 0.9, opacity: 0 }}
+              initial={{ scale: 0.85, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 25 }}
             >
               {/* Swipe Indicators - появляются при свайпе */}
               {isDragging && (
